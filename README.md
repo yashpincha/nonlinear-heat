@@ -1,1 +1,2 @@
 # nonlinear-heat
+Simplified solution of single propogating wave, full non-linear solution with no heat loss, full nonlinear solution with heat loss and full nonlinear solution with heat loss with robin boundary conditions.
