@@ -17,26 +17,11 @@ def load_dataset(path): #load a data set
 
 	return timestamp, output_voltage, output_current, thermistor_temperatures, comments
 
-file_path = r"/Users/isaacreid/nonlinear-heat/data/al_70s.csv"
+def sin_fit(t, A, phi, omega, T_0):
+	return A * np.sin(omega * t + phi) + T_0
 
 timestamp, output_voltage, output_current, thermistor_temperatures, comments = (
-	load_dataset(file_path)
+	load_dataset(r"/Users/isaacreid/nonlinear-heat/data/al_25xs.csv")
 )
 
-print(thermistor_temperatures.shape)
-
-print(len(thermistor_temperatures))
-print(len(thermistor_temperatures[0]))
- 
-
-for j in range(len(thermistor_temperatures[0])):
-    mean = np.mean(thermistor_temperatures[:, j])
-    detrended = thermistor_temperatures[:, j] - mean
-    sign_change = np.where(np.sign(detrended[:-1]) < np.sign(detrended[1:]))[0] #first point where sign goes from -ve to +ve
-
-    i0 = sign_change[0] + 1
-
-    temps_phase_removed = detrended[i0:] + mean
-    plt.plot(timestamp[i0:], temps_phase_removed)
-plt.title(file_path)
-plt.show()
+popt, pcov = curve_fit(sin_fit, timestamp)
