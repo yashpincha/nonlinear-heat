@@ -1,6 +1,7 @@
 import numpy as np
 import pymc as pm
-from base import BaseModel
+from .base import BaseModel
+import pytensor.tensor as pt
 
 class SimpleForward(BaseModel):
     '''
@@ -98,11 +99,11 @@ class FullSolutionNewton(BaseModel):
             Tbar = pm.Uniform("Tbar", 0.0, 50.0)
             
             mu = self.forward(x, t, {'D': D, 'w': w, 'A': A, 'phi': phi, 'L': L, 'gamma': gamma, 'Tbar': Tbar})
-            
+            mu_real = pt.real(mu)
             if sigma is None:
                 sigma = pm.HalfNormal("sigma", sigma=1.0)
             
-            pm.Normal("obs", mu=mu, sigma=sigma, observed=data)
+            pm.Normal("obs", mu=mu_real, sigma=sigma, observed=data)
         return model
 
 
