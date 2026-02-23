@@ -4,92 +4,29 @@ from .base import BaseModel
 import pytensor.tensor as pt
 
 class UnifiedHierarchical(BaseModel):
-    '''
-    Unified hierarchical Bayesian model across all sensors and frequencies.
-    Uses a forward model from the model registry (e.g., FullSolutionNewton).
-
-    Global parameters (shared across all data):
-    - D (diffusivity): thermal diffusivity
-    - gamma: Newton cooling coefficient (if applicable)
-
-    Frequency-specific parameters (with priors):
-    - T_amb_f: ambient temperature for each frequency
-    - A_f: amplitude for each frequency
-    - φ_f: phase for each frequency
-    - w_f: angular frequency for each frequency
-    - Other model-specific params (L, H, etc.)
-
-    The forward model is specified at initialization.
-    '''
-
     def __init__(self, config, forward_model=None):
-        """
-        Parameters:
-        -----------
-        config : dict
-            Configuration dictionary
-        forward_model : BaseModel instance
-            Instance of a model from models.py (e.g., FullSolutionNewton({}))
-        """
         super().__init__(config)
         self.forward_model = forward_model
 
     def forward(self, x, t, omega, params):
-        """
-        Forward model using the specified forward_model.
-
-        Parameters:
-        -----------
-        x : array, shape (N_sensors,)
-            Sensor positions
-        t : array, shape (N_time,)
-            Time samples
-        omega : float
-            Angular frequency for this dataset
-        params : dict
-            Must contain model-specific parameters
-
-        Returns:
-        --------
-        T : array, shape (N_sensors, N_time)
-            Predicted temperatures
-        """
         if self.forward_model is None:
             raise ValueError("No forward model specified. Pass forward_model to __init__")
 
-        # Add omega to params
         params_with_omega = params.copy()
         params_with_omega['w'] = omega
 
-        # Compute for each sensor position
         N_sensors = len(x) if isinstance(x, np.ndarray) else 1
         N_time = len(t)
 
         if N_sensors == 1:
             return self.forward_model.forward(x, t, params_with_omega)
         else:
-            # Vectorize across sensors
             predictions = np.zeros((N_sensors, N_time))
             for i, x_i in enumerate(x):
                 predictions[i, :] = self.forward_model.forward(x_i, t, params_with_omega)
             return predictions
-    
-    def build_model(self, datasets, x_sensors, L=0.046, sigma=None, model_type='FullSolutionNewton'):
-        """
-        Build hierarchical PyMC model for all frequencies.
 
-        Parameters:
-        -----------
-        datasets : list of dict
-            Each dict contains 't', 'temp', 'omega'
-        x_sensors : array, shape (N_sensors,)
-        L : float
-            Known cylinder length in meters (default 46mm)
-        sigma : None or float/array
-            Observation noise. If None, inferred per sensor.
-        model_type : str
-            'SimpleForward', 'FullSolution', 'FullSolutionNewton', 'FullSolutionRobin'
-        """
+    def build_model(self, datasets, x_sensors, L=0.046, sigma=None, model_type='FullSolutionNewton'):
         N_freqs = len(datasets)
         N_sensors = len(x_sensors)
 
@@ -106,18 +43,12 @@ class UnifiedHierarchical(BaseModel):
             if model_type == 'FullSolutionRobin':
                 H = pm.Uniform("H", lower=0.0, upper=10.0)
 
-            # ==========================================
-            # OBSERVATION NOISE (per sensor)
-            # ==========================================
             if sigma is None:
                 sigma = pm.HalfNormal("sigma", sigma=1.0, shape=N_sensors)
 
-            # ==========================================
-            # LIKELIHOOD - Call forward model for each sensor
-            # ==========================================
             for f_idx, data in enumerate(datasets):
                 t_f = data['t']
-                temp_f = data['temp']  # shape (N_sensors, N_time)
+                temp_f = data['temp']
                 omega_f = data['omega']
 
                 A_f = A[f_idx]
